@@ -1,0 +1,836 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Lectura infinita (móvil)</title>
+  <style>
+    :root{
+      --bg:#ffffff;
+      --fg:#111111;
+      --muted:#666;
+      --panel: rgba(30, 30, 30, 0.08);
+      --panel-strong: rgba(30, 30, 30, 0.14);
+      --btn: rgba(20,20,20,0.10);
+      --btn-hover: rgba(20,20,20,0.16);
+      --border: rgba(0,0,0,0.10);
+      --shadow: 0 10px 30px rgba(0,0,0,0.12);
+      --highlight: #ffe082;
+      --highlight2: #ffca28;
+      --fontSize: 18px;
+      --fontWeight: 400;
+      --lineHeight: 1.75;
+      --contentMax: 720px;
+    }
+
+    [data-theme="dark"]{
+      --bg:#0f1115;
+      --fg:#f1f3f6;
+      --muted:#aab2bf;
+      --panel: rgba(255, 255, 255, 0.08);
+      --panel-strong: rgba(255, 255, 255, 0.14);
+      --btn: rgba(255,255,255,0.10);
+      --btn-hover: rgba(255,255,255,0.16);
+      --border: rgba(255,255,255,0.12);
+      --shadow: 0 10px 30px rgba(0,0,0,0.35);
+      --highlight: #5c4a00;
+      --highlight2: #8a6a00;
+    }
+
+    *{ box-sizing:border-box; }
+    html, body { height:100%; }
+    body{
+      margin:0;
+      background:var(--bg);
+      color:var(--fg);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+      overflow-y: auto;
+    }
+
+    /* Safe-area padding for mobile notches */
+    .safe{
+      padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom) 0;
+    }
+
+    header{
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      background: color-mix(in oklab, var(--bg) 70%, transparent);
+      border-bottom: 1px solid var(--border);
+    }
+    .topbar{
+      max-width: var(--contentMax);
+      margin: 0 auto;
+      padding: 10px 14px;
+      display:flex;
+      gap:10px;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .title{
+      font-size: 14px;
+      color: var(--muted);
+      display:flex;
+      gap:8px;
+      align-items:center;
+      min-width: 0;
+    }
+    .title strong{
+      color: var(--fg);
+      font-weight: 600;
+      font-size: 14px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .counter{
+      font-size:12px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    main{
+      max-width: var(--contentMax);
+      margin: 0 auto;
+      padding: 14px 14px 120px 14px;
+    }
+
+    .page{
+      padding: 14px 12px;
+      margin: 10px 0 14px;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: color-mix(in oklab, var(--bg) 92%, var(--panel));
+      box-shadow: 0 1px 0 rgba(0,0,0,0.03);
+    }
+    .page h2{
+      margin: 0 0 10px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .02em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .doc{
+      font-size: var(--fontSize);
+      font-weight: var(--fontWeight);
+      line-height: var(--lineHeight);
+      text-align: justify;
+      text-justify: inter-word;
+      hyphens: auto;
+      word-break: normal;
+      overflow-wrap: break-word;
+    }
+
+    .doc p{
+      margin: 0 0 12px;
+    }
+    .doc p:last-child{ margin-bottom: 0; }
+
+    mark.hl{
+      background: var(--highlight);
+      color: inherit;
+      padding: 0 2px;
+      border-radius: 4px;
+    }
+    mark.hl.current{
+      outline: 2px solid color-mix(in oklab, var(--highlight2) 70%, transparent);
+      background: var(--highlight2);
+    }
+
+    /* Floating controls */
+    .fab-wrap{
+      position: fixed;
+      right: 14px;
+      bottom: calc(14px + env(safe-area-inset-bottom));
+      z-index: 50;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: flex-end;
+    }
+
+    .fab{
+      width: 54px;
+      height: 54px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--btn);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      box-shadow: var(--shadow);
+      display:grid;
+      place-items:center;
+      cursor:pointer;
+      user-select:none;
+      touch-action: manipulation;
+      transition: transform .08s ease, background .12s ease;
+    }
+    .fab:active{ transform: scale(0.98); }
+    .fab:hover{ background: var(--btn-hover); }
+
+    .fab svg{ width: 24px; height: 24px; fill: none; stroke: var(--fg); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    .panel{
+      width: min(360px, calc(100vw - 28px));
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: var(--panel);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      box-shadow: var(--shadow);
+      padding: 12px;
+      display: none;
+    }
+    .panel.open{ display:block; }
+
+    .panel h3{
+      margin: 2px 0 10px;
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .03em;
+    }
+
+    .row{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      justify-content:space-between;
+      padding: 8px 6px;
+      border-radius: 12px;
+    }
+    .row + .row{
+      margin-top: 6px;
+      border-top: 1px dashed var(--border);
+      padding-top: 12px;
+    }
+
+    .label{
+      font-size: 14px;
+      color: var(--fg);
+      font-weight: 600;
+    }
+    .sub{
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 2px;
+      font-weight: 500;
+    }
+
+    .col{
+      display:flex;
+      flex-direction:column;
+      gap:2px;
+      min-width: 0;
+    }
+
+    .controls{
+      display:flex;
+      gap: 8px;
+      align-items:center;
+      justify-content:flex-end;
+      flex-wrap: wrap;
+    }
+
+    button, input, select{
+      font: inherit;
+      color: inherit;
+    }
+
+    .btn{
+      border: 1px solid var(--border);
+      background: var(--panel-strong);
+      border-radius: 12px;
+      padding: 8px 10px;
+      cursor:pointer;
+      user-select:none;
+      touch-action: manipulation;
+    }
+    .btn:hover{ background: color-mix(in oklab, var(--panel-strong) 70%, var(--btn-hover)); }
+
+    .toggle{
+      display:flex;
+      gap: 8px;
+      align-items:center;
+    }
+
+    .pill{
+      border: 1px solid var(--border);
+      background: var(--panel-strong);
+      border-radius: 999px;
+      padding: 8px 10px;
+      min-width: 92px;
+      text-align:center;
+      cursor:pointer;
+      user-select:none;
+    }
+
+    .slider{
+      width: 160px;
+      accent-color: currentColor;
+    }
+
+    .textInput{
+      width: 170px;
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,0.0);
+      border-radius: 12px;
+      padding: 8px 10px;
+      outline: none;
+    }
+    [data-theme="dark"] .textInput{ background: rgba(255,255,255,0.02); }
+
+    .mini{
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* Prev/Next page translucent arrow buttons */
+    .navArrows{
+      position: fixed;
+      left: 12px;
+      bottom: calc(14px + env(safe-area-inset-bottom));
+      z-index: 45;
+      display:flex;
+      gap: 10px;
+      align-items:center;
+    }
+    .arrowBtn{
+      width: 52px;
+      height: 52px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--btn);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      box-shadow: var(--shadow);
+      display:grid;
+      place-items:center;
+      cursor:pointer;
+      user-select:none;
+      touch-action: manipulation;
+      transition: transform .08s ease, background .12s ease;
+    }
+    .arrowBtn:hover{ background: var(--btn-hover); }
+    .arrowBtn:active{ transform: scale(0.98); }
+    .arrowBtn svg{ width: 24px; height: 24px; fill: none; stroke: var(--fg); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+
+    /* Small helper toast */
+    .toast{
+      position: fixed;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: 92px;
+      z-index: 60;
+      padding: 10px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      box-shadow: var(--shadow);
+      color: var(--fg);
+      font-size: 13px;
+      display:none;
+      max-width: min(520px, calc(100vw - 28px));
+      text-align:center;
+    }
+    .toast.show{ display:block; }
+
+    /* Make it feel like a "phone vertical page" even on desktop */
+    .phone-frame{
+      max-width: 420px;
+      margin: 0 auto;
+    }
+    @media (min-width: 900px){
+      .phone-frame{
+        border-left: 1px solid var(--border);
+        border-right: 1px solid var(--border);
+      }
+    }
+  </style>
+</head>
+
+<body class="safe" data-theme="light">
+  <div class="phone-frame">
+    <header>
+      <div class="topbar">
+        <div class="title">
+          <strong>Documento</strong>
+          <span class="mini">· scroll infinito</span>
+        </div>
+        <div class="counter" id="counter">Página: 1 / 1</div>
+      </div>
+    </header>
+
+    <main id="content" aria-live="polite"></main>
+  </div>
+
+  <!-- Prev / Next translucent arrow buttons -->
+  <div class="navArrows" aria-label="Navegación por páginas">
+    <button class="arrowBtn" id="prevPage" title="Página anterior" aria-label="Página anterior">
+      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <button class="arrowBtn" id="nextPage" title="Página siguiente" aria-label="Página siguiente">
+      <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+    </button>
+  </div>
+
+  <!-- Floating button + panel -->
+  <div class="fab-wrap">
+    <div class="panel" id="panel" role="dialog" aria-label="Controles de lectura">
+      <h3>Controles</h3>
+
+      <div class="row">
+        <div class="col">
+          <div class="label">Modo nocturno</div>
+          <div class="sub">Cambia el tema claro/oscuro</div>
+        </div>
+        <div class="controls">
+          <button class="pill" id="toggleTheme">Claro</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col">
+          <div class="label">Tamaño de fuente</div>
+          <div class="sub" id="sizeLabel">18px</div>
+        </div>
+        <div class="controls">
+          <input class="slider" id="fontSize" type="range" min="14" max="26" value="18" />
+          <button class="btn" id="resetSize">Reset</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col">
+          <div class="label">Grosor de fuente</div>
+          <div class="sub" id="weightLabel">Normal</div>
+        </div>
+        <div class="controls">
+          <button class="pill" id="toggleWeight">Normal</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col">
+          <div class="label">Ir a página</div>
+          <div class="sub">Salta a una página lejana sin scrollear</div>
+        </div>
+        <div class="controls">
+          <input class="textInput" id="gotoInput" type="number" min="1" step="1" placeholder="Ej: 25" />
+          <button class="btn" id="gotoBtn">Ir</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col">
+          <div class="label">Buscar palabra</div>
+          <div class="sub">Resalta coincidencias y navega</div>
+        </div>
+        <div class="controls">
+          <input class="textInput" id="searchInput" type="search" placeholder="Escribe y Enter" />
+          <button class="btn" id="findBtn">Buscar</button>
+          <button class="btn" id="nextMatch">Siguiente</button>
+          <button class="btn" id="clearSearch">Limpiar</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col">
+          <div class="label">Generación de contenido</div>
+          <div class="sub">Añade páginas automáticamente al acercarte al final</div>
+        </div>
+        <div class="controls">
+          <button class="btn" id="add10">+10 páginas</button>
+          <button class="btn" id="toTop">Arriba</button>
+        </div>
+      </div>
+
+      <div class="mini" style="padding:8px 6px 0;">
+        Tip: en móvil, el botón flotante abre/cierra este panel.
+      </div>
+    </div>
+
+    <button class="fab" id="fab" aria-label="Abrir controles" title="Controles">
+      <svg viewBox="0 0 24 24">
+        <path d="M12 3v2M12 19v2M4.22 5.22l1.42 1.42M18.36 18.36l1.42 1.42M3 12h2M19 12h2M5.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+        <path d="M12 8a4 4 0 100 8 4 4 0 000-8z"/>
+      </svg>
+    </button>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // =========================
+    // Datos + generador de páginas
+    // =========================
+    const contentEl = document.getElementById("content");
+    const counterEl = document.getElementById("counter");
+
+    let pageCount = 0;
+    let pageEls = [];          // elementos .page
+    let currentPageIndex = 0;  // 0-based
+
+    // Texto ejemplo (puedes pegar tu contenido real aquí)
+    const baseParagraphs = [
+      "Este es un texto de ejemplo en formato documento, alineado de forma justificada para una lectura cómoda en pantalla vertical. La intención es que puedas usar esta plantilla y reemplazar el contenido por el tuyo sin perder el estilo ni los controles.",
+      "El modo de scroll infinito añade páginas automáticamente conforme te acercas al final. Cada “página” es un bloque con varios párrafos, ideal para lectura continua sin saltos.",
+      "Incluye un botón flotante traslúcido con: modo nocturno, cambio del grosor de fuente, cambio del tamaño de fuente, salto a páginas lejanas y buscador de palabras con resaltado.",
+      "Además hay dos botones traslúcidos separados para página anterior y siguiente (flechas), que te llevan al inicio del bloque de página correspondiente."
+    ];
+
+    function makeLorem(seed){
+      // Generador simple determinista basado en seed
+      const words = ("lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua " +
+        "ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat " +
+        "duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur " +
+        "excepteur sint occaecat cupidatat non proident sunt in culpa qui officia deserunt mollit anim id est laborum").split(" ");
+      let out = [];
+      let n = 90 + (seed % 60); // longitud variable
+      let idx = (seed * 37) % words.length;
+      for(let i=0;i<n;i++){
+        out.push(words[idx]);
+        idx = (idx + 1 + (seed % 7)) % words.length;
+      }
+      // Capitaliza primera y agrega punto.
+      let s = out.join(" ");
+      return s.charAt(0).toUpperCase() + s.slice(1) + ".";
+    }
+
+    function buildPageText(pageNumber){
+      // Mezcla: párrafos base al inicio + párrafos generados
+      const paras = [];
+      if(pageNumber === 1){
+        paras.push(...baseParagraphs);
+      }
+      // 4 a 7 párrafos por página
+      const count = 4 + (pageNumber % 4);
+      for(let i=0;i<count;i++){
+        paras.push(makeLorem(pageNumber * 100 + i));
+      }
+      return paras;
+    }
+
+    function addPage(){
+      pageCount += 1;
+
+      const page = document.createElement("section");
+      page.className = "page";
+      page.id = "page-" + pageCount;
+
+      const h = document.createElement("h2");
+      h.textContent = "Página " + pageCount;
+
+      const doc = document.createElement("div");
+      doc.className = "doc";
+      const paras = buildPageText(pageCount);
+      for(const t of paras){
+        const p = document.createElement("p");
+        p.textContent = t;
+        doc.appendChild(p);
+      }
+
+      page.appendChild(h);
+      page.appendChild(doc);
+      contentEl.appendChild(page);
+
+      pageEls.push(page);
+      updateCounter();
+    }
+
+    function addPages(n){
+      for(let i=0;i<n;i++) addPage();
+    }
+
+    // Inicial
+    addPages(8);
+
+    // =========================
+    // Scroll infinito
+    // =========================
+    let isAppending = false;
+    window.addEventListener("scroll", () => {
+      // 1) Actualiza página "actual" según el viewport
+      updateCurrentPageFromScroll();
+
+      // 2) Infinite append near bottom
+      const nearBottom = (window.innerHeight + window.scrollY) >= (document.body.offsetHeight - 800);
+      if(nearBottom && !isAppending){
+        isAppending = true;
+        // Añade pocas para mantener fluidez
+        addPages(4);
+        // ligera relajación
+        setTimeout(()=> isAppending = false, 120);
+      }
+    }, { passive:true });
+
+    function updateCurrentPageFromScroll(){
+      // Encuentra la página cuyo top está más cerca del top del viewport (sin pasarse demasiado)
+      let bestIdx = 0;
+      let bestDist = Infinity;
+      const y = window.scrollY;
+
+      for(let i=0;i<pageEls.length;i++){
+        const rect = pageEls[i].getBoundingClientRect();
+        const absTop = rect.top + window.scrollY;
+        const dist = Math.abs(absTop - y - 70); // 70 por header
+        if(dist < bestDist){
+          bestDist = dist;
+          bestIdx = i;
+        }
+      }
+      currentPageIndex = bestIdx;
+      updateCounter();
+    }
+
+    function updateCounter(){
+      counterEl.textContent = `Página: ${currentPageIndex + 1} / ${pageCount}`;
+    }
+
+    // =========================
+    // Navegación página anterior/siguiente (flechas)
+    // =========================
+    const prevBtn = document.getElementById("prevPage");
+    const nextBtn = document.getElementById("nextPage");
+
+    function scrollToPage(index){
+      if(index < 0) index = 0;
+      if(index >= pageEls.length){
+        // si piden una página aún no creada, créala
+        const need = index - pageEls.length + 1;
+        addPages(Math.max(need, 1));
+      }
+      const el = pageEls[index];
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      currentPageIndex = index;
+      updateCounter();
+    }
+
+    prevBtn.addEventListener("click", () => scrollToPage(currentPageIndex - 1));
+    nextBtn.addEventListener("click", () => scrollToPage(currentPageIndex + 1));
+
+    // =========================
+    // FAB panel open/close
+    // =========================
+    const fab = document.getElementById("fab");
+    const panel = document.getElementById("panel");
+
+    fab.addEventListener("click", () => {
+      panel.classList.toggle("open");
+    });
+
+    // Cierra panel tocando fuera (simple)
+    document.addEventListener("click", (e) => {
+      const clickedInside = panel.contains(e.target) || fab.contains(e.target);
+      if(!clickedInside) panel.classList.remove("open");
+    });
+
+    // =========================
+    // Tema (modo nocturno)
+    // =========================
+    const toggleThemeBtn = document.getElementById("toggleTheme");
+    const root = document.body;
+
+    function setTheme(mode){
+      root.setAttribute("data-theme", mode);
+      toggleThemeBtn.textContent = mode === "dark" ? "Oscuro" : "Claro";
+    }
+    toggleThemeBtn.addEventListener("click", () => {
+      const now = root.getAttribute("data-theme") || "light";
+      setTheme(now === "dark" ? "light" : "dark");
+    });
+
+    // =========================
+    // Tamaño y grosor de fuente
+    // =========================
+    const fontSize = document.getElementById("fontSize");
+    const sizeLabel = document.getElementById("sizeLabel");
+    const resetSize = document.getElementById("resetSize");
+
+    function setFontSize(px){
+      document.documentElement.style.setProperty("--fontSize", px + "px");
+      sizeLabel.textContent = px + "px";
+      fontSize.value = px;
+    }
+    fontSize.addEventListener("input", () => setFontSize(parseInt(fontSize.value, 10)));
+    resetSize.addEventListener("click", () => setFontSize(18));
+    setFontSize(18);
+
+    const toggleWeightBtn = document.getElementById("toggleWeight");
+    const weightLabel = document.getElementById("weightLabel");
+    let isBold = false;
+
+    function setWeight(bold){
+      isBold = bold;
+      document.documentElement.style.setProperty("--fontWeight", bold ? "600" : "400");
+      toggleWeightBtn.textContent = bold ? "Negrita" : "Normal";
+      weightLabel.textContent = bold ? "Negrita" : "Normal";
+    }
+    toggleWeightBtn.addEventListener("click", () => setWeight(!isBold));
+    setWeight(false);
+
+    // =========================
+    // Ir a página lejana
+    // =========================
+    const gotoInput = document.getElementById("gotoInput");
+    const gotoBtn = document.getElementById("gotoBtn");
+
+    gotoBtn.addEventListener("click", () => {
+      const n = parseInt(gotoInput.value, 10);
+      if(!Number.isFinite(n) || n < 1){
+        toast("Escribe un número de página válido.");
+        return;
+      }
+      scrollToPage(n - 1);
+      panel.classList.remove("open");
+    });
+
+    gotoInput.addEventListener("keydown", (e) => {
+      if(e.key === "Enter") gotoBtn.click();
+    });
+
+    // =========================
+    // Buscador + resaltado + siguiente coincidencia
+    // =========================
+    const searchInput = document.getElementById("searchInput");
+    const findBtn = document.getElementById("findBtn");
+    const nextMatchBtn = document.getElementById("nextMatch");
+    const clearSearchBtn = document.getElementById("clearSearch");
+
+    let matches = [];    // array de <mark>
+    let matchIndex = -1; // índice actual
+
+    function escapeRegExp(s){
+      return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    }
+
+    function clearHighlights(){
+      // Reemplaza mark por su texto
+      const all = contentEl.querySelectorAll("mark.hl");
+      all.forEach(m => {
+        const textNode = document.createTextNode(m.textContent);
+        m.replaceWith(textNode);
+      });
+      matches = [];
+      matchIndex = -1;
+    }
+
+    function highlightTerm(term){
+      clearHighlights();
+      if(!term) return;
+
+      const re = new RegExp(escapeRegExp(term), "gi");
+
+      const paragraphs = contentEl.querySelectorAll(".doc p");
+      paragraphs.forEach(p => {
+        const text = p.textContent;
+        if(!re.test(text)) return;
+
+        // reconstruye el contenido con marks (sin innerHTML “peligroso”: lo hacemos con nodos)
+        re.lastIndex = 0;
+        const frag = document.createDocumentFragment();
+        let last = 0;
+        let m;
+
+        while((m = re.exec(text)) !== null){
+          const start = m.index;
+          const end = start + m[0].length;
+
+          if(start > last){
+            frag.appendChild(document.createTextNode(text.slice(last, start)));
+          }
+          const mark = document.createElement("mark");
+          mark.className = "hl";
+          mark.textContent = text.slice(start, end);
+          frag.appendChild(mark);
+
+          last = end;
+        }
+        if(last < text.length){
+          frag.appendChild(document.createTextNode(text.slice(last)));
+        }
+
+        p.textContent = "";
+        p.appendChild(frag);
+      });
+
+      matches = Array.from(contentEl.querySelectorAll("mark.hl"));
+      if(matches.length === 0){
+        toast(`Sin coincidencias para: "${term}"`);
+      }else{
+        toast(`Encontradas ${matches.length} coincidencias.`);
+        matchIndex = -1;
+        goToNextMatch();
+      }
+    }
+
+    function goToNextMatch(){
+      if(matches.length === 0) return;
+
+      // limpia "current"
+      matches.forEach(m => m.classList.remove("current"));
+
+      matchIndex = (matchIndex + 1) % matches.length;
+      const el = matches[matchIndex];
+      el.classList.add("current");
+
+      // scroll suave hacia la coincidencia
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+
+      // Ajusta contador aproximando página actual
+      setTimeout(updateCurrentPageFromScroll, 200);
+    }
+
+    findBtn.addEventListener("click", () => highlightTerm(searchInput.value.trim()));
+    nextMatchBtn.addEventListener("click", goToNextMatch);
+    clearSearchBtn.addEventListener("click", () => {
+      clearHighlights();
+      toast("Búsqueda limpia.");
+    });
+
+    searchInput.addEventListener("keydown", (e) => {
+      if(e.key === "Enter"){
+        highlightTerm(searchInput.value.trim());
+      }
+    });
+
+    // =========================
+    // Extras panel
+    // =========================
+    document.getElementById("add10").addEventListener("click", () => {
+      addPages(10);
+      toast("+10 páginas añadidas.");
+    });
+
+    document.getElementById("toTop").addEventListener("click", () => {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+
+    // =========================
+    // Toast helper
+    // =========================
+    const toastEl = document.getElementById("toast");
+    let toastTimer = null;
+
+    function toast(msg){
+      toastEl.textContent = msg;
+      toastEl.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toastEl.classList.remove("show"), 1800);
+    }
+
+    // Inicializa contador correcto
+    updateCurrentPageFromScroll();
+  </script>
+</body>
+</html>
