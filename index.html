@@ -616,8 +616,20 @@
       updateCounter();
     }
 
-    prevBtn.addEventListener("click", () => scrollToPage(currentPageIndex - 1));
-    nextBtn.addEventListener("click", () => scrollToPage(currentPageIndex + 1));
+    
+    // ===== Flechas: scroll por pantalla (no por página) =====
+function scrollOneScreen(direction){
+  const headerOffset = 70; // alto aproximado del header
+  const step = Math.floor((window.innerHeight - headerOffset) * 0.92);
+
+  window.scrollBy({
+    top: direction * step,
+    behavior: "smooth"
+  });
+}
+
+prevBtn.addEventListener("click", () => scrollOneScreen(-1));
+nextBtn.addEventListener("click", () => scrollOneScreen(1));
 
     // =========================
     // FAB panel open/close
